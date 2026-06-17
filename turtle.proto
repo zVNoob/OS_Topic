@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+message Void {}
+message D {
+  double value = 1;
+}
+
+service Turtle {
+  rpc Home (Void) returns (Void);
+  rpc Forward (D) returns (Void);
+  rpc Backward (D) returns (Void);
+  rpc TurnLeft (D) returns (Void);
+  rpc TurnRight (D) returns (Void);
+  rpc PenUp (Void) returns (Void);
+  rpc PenDown (Void) returns (Void);
+}

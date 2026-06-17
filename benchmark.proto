@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+message Void {}
+message String {
+  bytes value = 2;
+}
+
+service Benchmark {
+  rpc Ping (Void) returns (Void);
+  rpc Send (stream String) returns (Void);
+}
