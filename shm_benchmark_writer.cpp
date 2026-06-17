@@ -32,7 +32,6 @@ int main() {
     }
     std::cerr << "Data preparation: " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - t1).count() << "us\n";
 
-    t1 = std::chrono::high_resolution_clock::now();
 
     // Setup SHM
     int fd = shm_open(SHM_NAME, O_CREAT | O_RDWR, 0666);
@@ -52,6 +51,7 @@ int main() {
     if (sem_full == SEM_FAILED) { perror("sem_open"); return 1; }
 
 
+    t1 = std::chrono::high_resolution_clock::now();
 
     for (int i = 0; i < DATA_SIZE; i += CHUNK_SIZE) {
         int w = __atomic_load_n(&ring->write_idx, __ATOMIC_ACQUIRE);
