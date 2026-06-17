@@ -33,7 +33,7 @@ compile_all: compile_pipe compile_shm compile_rpc compile_mq
 # --- benchmark targets ---
 
 benchmark_pipe: pipe_benchmark
-	./pipe_benchmark > /dev/null
+	./pipe_benchmark | cat > /dev/null
 
 benchmark_shm: shm_benchmark_writer shm_benchmark_reader
 	./shm_benchmark_writer &
@@ -42,7 +42,7 @@ benchmark_shm: shm_benchmark_writer shm_benchmark_reader
 
 benchmark_rpc: rpc_benchmark_server rpc_benchmark_client
 	@trap 'kill 0 2>/dev/null; wait 2>/dev/null' EXIT; \
-	./rpc_benchmark_server > /dev/null & sleep 1; \
+	./rpc_benchmark_server | cat > /dev/null & sleep 1; \
 	./rpc_benchmark_client
 
 compile_pipe: pipe_benchmark
@@ -56,6 +56,6 @@ compile_mq: mq_benchmark_sender mq_benchmark_receiver
 benchmark_mq: mq_benchmark_sender mq_benchmark_receiver
 	./mq_benchmark_sender &
 	inotifywait /dev/mqueue/ --include "mq_benchmark" -e create -qq 2>/dev/null || true
-	./mq_benchmark_receiver > /dev/null
+	./mq_benchmark_receiver | cat > /dev/null
 
 benchmark_all: benchmark_pipe benchmark_shm benchmark_rpc benchmark_mq

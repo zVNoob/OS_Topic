@@ -8,48 +8,48 @@
 
 using namespace std;
 
-static const char* SHM_NAME  = "/shm_benchmark";
-static const char* SEM_NAME  = "/sem_benchmark";
-static const char* SEM_ACK_NAME  = "/sem_ack_benchmark";
-static const int   DATA_SIZE = 1024 * 1024 * 1024; // 1 GB
+static const char* SHM_NAME     = "/shm_benchmark";
+static const char* SEM_FULL     = "/sem_full_benchmark";
+static const int   DATA_SIZE    = 1024 * 1024 * 1024;
+static const int   CHUNK_SIZE   = 4096;
+static const int   NUM_SLOTS    = 1024;
 
-struct SharedHeader {
-    int  len;
-    char data[DATA_SIZE];
+struct SharedRing {
+    int write_idx;
+    int read_idx;
+    char slots[NUM_SLOTS][CHUNK_SIZE];
 };
 
 int main() {
-    // Open existing shared memory (writer must run first)
-    int fd = shm_open(SHM_NAME, O_RDONLY, 0600);
+    int fd = shm_open(SHM_NAME, O_RDWR, 0600);
     if (fd < 0) { perror("shm_open (start writer first)"); return 1; }
 
-    SharedHeader* hdr = (SharedHeader*)mmap(
-        nullptr, sizeof(SharedHeader),
-        PROT_READ, MAP_SHARED,
-        fd, 0);
+    SharedRing* ring = (SharedRing*)mmap(
+        nullptr, sizeof(SharedRing),
+        PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     close(fd);
-    if (hdr == MAP_FAILED) { perror("mmap"); return 1; }
+    if (ring == MAP_FAILED) { perror("mmap"); return 1; }
 
-    // Open semaphore and wait for writer's signal
-    sem_t* sem = sem_open(SEM_NAME, 0);
-    if (sem == SEM_FAILED) { perror("sem_open"); return 1; }
+    sem_t* sem_full = sem_open(SEM_FULL, 0);
+    if (sem_full == SEM_FAILED) { perror("sem_open"); return 1; }
 
-    sem_wait(sem);
-
-    // Dump to stdout
     std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
-    write(STDOUT_FILENO, hdr->data, hdr->len);
-    write(STDOUT_FILENO, "\n", 1);
+
+    for (int i = 0; i < DATA_SIZE; i += CHUNK_SIZE) {
+        sem_wait(sem_full);
+
+        int r = __atomic_load_n(&ring->read_idx, __ATOMIC_ACQUIRE);
+        int slot = r % NUM_SLOTS;
+        size_t n = min(CHUNK_SIZE, DATA_SIZE - i);
+        if (write(STDOUT_FILENO, ring->slots[slot], n) == -1) { perror("write"); return 1; }
+        __atomic_add_fetch(&ring->read_idx, 1, __ATOMIC_RELEASE);
+    }
+
     stringstream ss;
     ss << "Message receiving: " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - t1).count() << "us\n";
     cerr << ss.str();
-    // Signal writer
-    sem_t* sem_ack = sem_open(SEM_ACK_NAME, O_WRONLY, 0600, 0);
-    if (sem_ack == SEM_FAILED) { perror("sem_open"); return 1; }
-    sem_post(sem_ack);
-    sem_close(sem_ack);
 
-    sem_close(sem);
-    munmap(hdr, sizeof(SharedHeader));
+    sem_close(sem_full);
+    munmap(ring, sizeof(SharedRing));
     return 0;
 }

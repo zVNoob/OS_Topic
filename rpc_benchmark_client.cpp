@@ -22,7 +22,7 @@ public:
     ::Void response;
     grpc::ClientContext context;
     auto writer = _stub.Send(&context, &response);
-    const size_t chunk_size = 1024 * 1024;
+    const size_t chunk_size = 1024 * 4;
     for (size_t i = 0; i < message.size(); i += chunk_size) {
       ::String chunk;
       size_t n = std::min(chunk_size, message.size() - i);
